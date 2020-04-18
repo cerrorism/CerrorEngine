@@ -1,8 +1,6 @@
 #pragma once
 #include "pch.h"
 
-#include "Game.h"
-
 using winrt::Windows::ApplicationModel::Core::IFrameworkViewSource;
 using winrt::Windows::ApplicationModel::Core::IFrameworkView;
 

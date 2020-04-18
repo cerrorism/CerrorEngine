@@ -11,6 +11,7 @@ using winrt::Windows::UI::Core::VisibilityChangedEventArgs;
 using winrt::Windows::UI::Core::AcceleratorKeyEventArgs;
 using winrt::Windows::ApplicationModel::Activation::IActivatedEventArgs;
 
+
 class App : public winrt::implements<App, IFrameworkView> {
 public:
 	void Initialize(CoreApplicationView const&);
@@ -24,9 +25,9 @@ protected:
 
 private:
 	std::unique_ptr<Game> game;
-	float dpi;
-	float logicalWidth;
-	float logicalHeight;
+	float dpi = 0;
+	float logicalWidth = 0;
+	float logicalHeight = 0;
 	bool exit = false;
 
 	inline float ConvertPixelsToDips(int pixels) const noexcept

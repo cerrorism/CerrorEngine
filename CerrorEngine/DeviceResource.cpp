@@ -1,27 +1,6 @@
 #include "pch.h"
 #include "DeviceResource.h"
 
-#if defined(_DEBUG)
-// Check for SDK Layer support.
-inline bool SdkLayersAvailable() noexcept
-{
-    HRESULT hr = D3D11CreateDevice(
-        nullptr,
-        D3D_DRIVER_TYPE_NULL,       // There is no need to create a real hardware device.
-        nullptr,
-        D3D11_CREATE_DEVICE_DEBUG,  // Check for the SDK layers.
-        nullptr,                    // Any feature level will do.
-        0,
-        D3D11_SDK_VERSION,
-        nullptr,                    // No need to keep the D3D device reference.
-        nullptr,                    // No need to know the feature level.
-        nullptr                     // No need to keep the D3D device context reference.
-        );
-
-    return SUCCEEDED(hr);
-}
-#endif
-
 const D3D_FEATURE_LEVEL FeatureLevels[] =
 {
     D3D_FEATURE_LEVEL_12_1,
@@ -44,7 +23,7 @@ DeviceResource::DeviceResource() noexcept
 
 void DeviceResource::SetWindow(IUnknown* window, int width, int height) noexcept
 {
-    window = window;
+    this->window = window;
 
     outputSize.left = outputSize.top = 0;
     outputSize.right = width;
@@ -54,35 +33,7 @@ void DeviceResource::SetWindow(IUnknown* window, int width, int height) noexcept
 void DeviceResource::createResource()
 {
     unsigned int creationFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
-#if defined(_DEBUG)
-    if (SdkLayersAvailable()) {
-        creationFlags |= D3D11_CREATE_DEVICE_DEBUG;
-    }
-    else {
-        OutputDebugStringA("WARNING: Direct3D Debug Device is not available\n");
-    }
-#endif
 
-#if defined(_DEBUG)
-    {
-        com_ptr<IDXGIInfoQueue> dxgiInfoQueue;
-        check_hresult(DXGIGetDebugInterface1(0, __uuidof(dxgiInfoQueue), dxgiInfoQueue.put_void()));
-
-        dxgiFactoryFlags = DXGI_CREATE_FACTORY_DEBUG;
-
-        dxgiInfoQueue->SetBreakOnSeverity(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_ERROR, true);
-        dxgiInfoQueue->SetBreakOnSeverity(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_CORRUPTION, true);
-
-        DXGI_INFO_QUEUE_MESSAGE_ID hide[] =
-        {
-            80 /* IDXGISwapChain::GetContainingOutput: The swapchain's adapter does not control the output on which the swapchain's window resides. */,
-        };
-        DXGI_INFO_QUEUE_FILTER filter = {};
-        filter.DenyList.NumIDs = _countof(hide);
-        filter.DenyList.pIDList = hide;
-        dxgiInfoQueue->AddStorageFilterEntries(DXGI_DEBUG_DXGI, &filter);
-    }
-#endif
     check_hresult(CreateDXGIFactory2(dxgiFactoryFlags, __uuidof(dxgiFactory), dxgiFactory.put_void()));
 
     int featureLevelsCount = std::count_if(FeatureLevels, FeatureLevels + 9, [this](D3D_FEATURE_LEVEL level) { return level > minFeatureLevel; });
@@ -100,31 +51,8 @@ void DeviceResource::createResource()
         &featureLevel,         // Returns feature level of device created.
         context.put()      // Returns the device immediate context.
         ));
-#ifndef NDEBUG
-    com_ptr<ID3D11InfoQueue> d3dInfoQueue = device.as<ID3D11Debug>().as<ID3D11InfoQueue>();
-#ifdef _DEBUG
-    d3dInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, true);
-    d3dInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, true);
-#endif
-    D3D11_MESSAGE_ID hide[] = { D3D11_MESSAGE_ID_SETPRIVATEDATA_CHANGINGPARAMS };
-    D3D11_INFO_QUEUE_FILTER filter = {};
-    filter.DenyList.NumIDs = _countof(hide);
-    filter.DenyList.pIDList = hide;
-    d3dInfoQueue->AddStorageFilterEntries(&filter);
-#endif
     d3dDevice = device.as<ID3D11Device3>();
     d3dContext = context.as<ID3D11DeviceContext2>();
-}
-
-inline DXGI_FORMAT NoSRGB(DXGI_FORMAT fmt) noexcept
-{
-    switch (fmt)
-    {
-    case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:   return DXGI_FORMAT_R8G8B8A8_UNORM;
-    case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:   return DXGI_FORMAT_B8G8R8A8_UNORM;
-    case DXGI_FORMAT_B8G8R8X8_UNORM_SRGB:   return DXGI_FORMAT_B8G8R8X8_UNORM;
-    default:                                return fmt;
-    }
 }
 
 void DeviceResource::createWindowSizeResource()
@@ -146,7 +74,6 @@ void DeviceResource::createWindowSizeResource()
     // Determine the render target size in pixels.
     const UINT backBufferWidth = std::max<UINT>(static_cast<UINT>(outputSize.right - outputSize.left), 1u);
     const UINT backBufferHeight = std::max<UINT>(static_cast<UINT>(outputSize.bottom - outputSize.top), 1u);
-    const DXGI_FORMAT bbf = NoSRGB(backBufferFormat);
 
     if (swapChain) {
         // If the swap chain already exists, resize it.
@@ -154,7 +81,7 @@ void DeviceResource::createWindowSizeResource()
             backBufferCount,
             backBufferWidth,
             backBufferHeight,
-            bbf,
+            backBufferFormat,
             0u
             ));
     }
@@ -163,7 +90,7 @@ void DeviceResource::createWindowSizeResource()
         DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
         swapChainDesc.Width = backBufferWidth;
         swapChainDesc.Height = backBufferHeight;
-        swapChainDesc.Format = bbf;
+        swapChainDesc.Format = backBufferFormat;
         swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
         swapChainDesc.BufferCount = backBufferCount;
         swapChainDesc.SampleDesc.Count = 1;
@@ -189,7 +116,7 @@ void DeviceResource::createWindowSizeResource()
     }
 
     check_hresult(swapChain->GetBuffer(0, __uuidof(renderTarget), renderTarget.put_void()));
-    CD3D11_RENDER_TARGET_VIEW_DESC renderTargetViewDesc(D3D11_RTV_DIMENSION_TEXTURE2D, bbf);
+    CD3D11_RENDER_TARGET_VIEW_DESC renderTargetViewDesc(D3D11_RTV_DIMENSION_TEXTURE2D, backBufferFormat);
     d3dRenderTargetView = nullptr;
     check_hresult(d3dDevice->CreateRenderTargetView(
         renderTarget.get(),

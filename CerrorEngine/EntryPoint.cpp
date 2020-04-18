@@ -3,7 +3,7 @@
 #include "App.h"
 
 using namespace winrt;
-using winrt::Windows::ApplicationModel::Core::CoreApplication;
+using Windows::ApplicationModel::Core::CoreApplication;
 
 
 IFrameworkView EntryPoint::CreateView()

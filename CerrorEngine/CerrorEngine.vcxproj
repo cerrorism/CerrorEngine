@@ -68,7 +68,11 @@
   <ImportGroup Label="PropertySheets">
     <Import Project="PropertySheet.props" />
   </ImportGroup>
-  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Label="UserMacros">
+    <PackageCertificateThumbprint>EF1315C4411D90903549E8AAAF421C89E1635F5B</PackageCertificateThumbprint>
+    <PackageCertificateKeyFile>CerrorEngine_TemporaryKey.pfx</PackageCertificateKeyFile>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
+  </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
       <PrecompiledHeader>Use</PrecompiledHeader>
@@ -133,6 +137,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="CerrorEngine_TemporaryKey.pfx" />
     <None Include="packages.config" />
     <None Include="PropertySheet.props" />
     <Text Include="readme.txt">
